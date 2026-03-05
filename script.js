@@ -9,38 +9,32 @@ function calculate() {
   const municipalRate = parseFloat(document.getElementById("municipal").value) / 100;
   const regionalRate = parseFloat(document.getElementById("regional").value) / 100;
   const mensilita = parseInt(document.getElementById("mensilita").value);
-  const pubblico = parseInt(document.getElementById("pubblico").value) === 0 ? TAX_CONFIG.inpsEmployeeRate : TAX_CONFIG.inpsPublicRate; // percentuale inps
+  const pubblico = parseInt(document.getElementById("pubblico").value) === 0 ? TAX_CONFIG.inpsEmployeeRate : TAX_CONFIG.inpsPublicRate;
 
-  // controllo campi non compilati
-  if (!ral) {
-    alert("Inserisci la RAL");
-    return;
-  }
-  if (!municipalRate) {
-    alert("Inserisci l'addizionale comunale");
-    return;
-  }
-  if (!regionalRate) {
-    alert("Inserisci l'addizionale regionale");
-    return;
-  }
+  if (!ral) { alert("Inserisci la RAL"); return; }
+  if (!municipalRate) { alert("Inserisci l'addizionale comunale"); return; }
+  if (!regionalRate) { alert("Inserisci l'addizionale regionale"); return; }
 
-  
-  const inps = ral * pubblico;                                  // contributi INPS
-  const taxable = ral - inps;                                   // imponibile IRPEF
-  const irpef = calculateIrpef(taxable);                        // IRPEF
-  const regional = taxable * regionalRate;                      // addizionali regionali
-  const municipal = taxable * municipalRate;                    // addizionali comunali
-  const netAnnual = ral - inps - irpef - regional - municipal;  // netto annuo e mensile
+  const inps                = ral * pubblico;                                               // contributi INPS
+  const imponibileIrpef     = ral - inps;                                                   // imponibile IRPEF
+  const irpefLorda          = calculateIrpef(imponibileIrpef);                              // IRPEF lordo
+  const detrazioni          = TAX_CONFIG.deductions(irpefLorda);                            // detrazioni IRPEF
+  const regionali           = imponibileIrpef * regionalRate;                               // addizionali regionali
+  const comunali            = imponibileIrpef * municipalRate;                              // addizionali comunali
+  const totaleRitenuteIrpef = Math.max(irpefLorda - detrazioni, 0) + regionali + comunali;  // ritenute IRPEF
+  const nettoAnnuo          = ral - inps - totaleRitenuteIrpef;                             // netto annuo
 
   salaryData = {
-    net: netAnnual,
-    inps: inps,
-    irpef: irpef,
-    regional: regional,
-    municipal: municipal,
-    mensilita: mensilita,
-    ral: ral
+    quotaInps: inps,
+    imponibileIrpef: imponibileIrpef,
+    irpefLorda: irpefLorda,
+    detrazioniIrpef: detrazioni,
+    addizionaliComunali: comunali,
+    addizionaliRegionali: regionali,
+    totaleRitenuteIrpef: totaleRitenuteIrpef,
+    nettoAnnuo: nettoAnnuo,
+    ral: ral,
+    mensilita: mensilita
   };
 
   // aggiorna grafico e valori
@@ -75,12 +69,15 @@ function updateDisplay() {
   }
 
   // mostra valori
-  const gross = currentMode === "annual" ? salaryData.ral : salaryData.ral / salaryData.mensilita;
-  const net = salaryData.net * factor;
-  const inps = salaryData.inps * factor;
-  const irpef = salaryData.irpef * factor;
-  const regional = salaryData.regional * factor;
-  const municipal = salaryData.municipal * factor;
+  const lordo = currentMode === "annual" ? salaryData.ral : salaryData.ral / salaryData.mensilita;
+  const netto = salaryData.nettoAnnuo * factor;
+  const inps  = salaryData.quotaInps * factor;
+  const imponibileIrpef = salaryData.imponibileIrpef * factor; 
+  const irpefLorda = salaryData.irpefLorda * factor; 
+  const detrazioniIrpef = salaryData.detrazioniIrpef * factor; 
+  const comunali = salaryData.addizionaliComunali * factor; 
+  const regionali = salaryData.addizionaliRegionali * factor; 
+  const totaleRitenuteIrpef = salaryData.totaleRitenuteIrpef * factor; 
 
   const period = currentMode === "annual" ? "annuo" : "mensile";
 
@@ -88,36 +85,62 @@ function updateDisplay() {
   <div style="display: flex; flex-direction: column; gap: 4px;">
     <div style="display: flex; justify-content: space-between;">
       <span><b>Lordo ${period}:</b></span>
-      <span style="text-align: right;">${gross.toFixed(2)} €</span>
+      <span style="text-align: right;">${lordo.toFixed(2)} €</span>
     </div>
     <div style="display: flex; justify-content: space-between;">
       <span><b>INPS:</b></span>
-      <span style="text-align: right;">${inps.toFixed(2)} €</span>
+      <span style="text-align: right;">- ${inps.toFixed(2)} €</span>
     </div>
     <div style="display: flex; justify-content: space-between;">
-      <span><b>IRPEF:</b></span>
-      <span style="text-align: right;">${irpef.toFixed(2)} €</span>
+      <span><b>Imponibile IRPEF:</b></span>
+      <span style="text-align: right;">= ${imponibileIrpef.toFixed(2)} €</span>
+    </div>
+    <hr/>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>IRPEF Lordo:</b></span>
+      <span style="text-align: right;">${irpefLorda.toFixed(2)} €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>Detrazioni IRPEF:</b></span>
+      <span style="text-align: right;">+ ${detrazioniIrpef.toFixed(2)} €</span>
     </div>
     <div style="display: flex; justify-content: space-between;">
       <span><b>Addizionale regionale:</b></span>
-      <span style="text-align: right;">${regional.toFixed(2)} €</span>
+      <span style="text-align: right;">- ${regionali.toFixed(2)} €</span>
     </div>
     <div style="display: flex; justify-content: space-between;">
       <span><b>Addizionale comunale:</b></span>
-      <span style="text-align: right;">${municipal.toFixed(2)} €</span>
+      <span style="text-align: right;">- ${comunali.toFixed(2)} €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>Totale IRPEF:</b></span>
+      <span style="text-align: right;">= ${totaleRitenuteIrpef.toFixed(2)} €</span>
+    </div>
+    <hr/>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>Lordo ${period}:</b></span>
+      <span style="text-align: right;">${lordo.toFixed(2)} €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>INPS:</b></span>
+      <span style="text-align: right;">- ${inps.toFixed(2)} €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between;">
+      <span><b>Totale IRPEF:</b></span>
+      <span style="text-align: right;">- ${totaleRitenuteIrpef.toFixed(2)} €</span>
     </div>
     <div style="display: flex; justify-content: space-between;">
       <span><b>Netto ${period}:</b></span>
-      <span style="text-align: right;">${net.toFixed(2)} €</span>
+      <span style="text-align: right;">= ${netto.toFixed(2)} €</span>
     </div>
   </div>
 `;
 
-  renderChart(net, inps, irpef, regional, municipal);
+  renderChart(netto, totaleRitenuteIrpef, inps);
 }
 
 // crea / aggiorna grafico doughnut
-function renderChart(net, inps, irpef, regional, municipal) {
+function renderChart(netto, totaleRitenuteIrpef, inps) {
   const ctx = document.getElementById("salaryChart");
 
   if (chart) chart.destroy();
@@ -125,15 +148,13 @@ function renderChart(net, inps, irpef, regional, municipal) {
   chart = new Chart(ctx, {
     type: "doughnut",
     data: {
-      labels: ["Netto", "INPS", "IRPEF", "Regionale", "Comunale"],
+      labels: ["Netto", "IRPEF", "INPS"],
       datasets: [{
-        data: [net, inps, irpef, regional, municipal],
+        data: [netto, totaleRitenuteIrpef, inps],
         backgroundColor: [
           "#4CAF50",
           "#2196F3",
-          "#FF9800",
-          "#9C27B0",
-          "#F44336"
+          "#FF9800"
         ]
       }]
     },
