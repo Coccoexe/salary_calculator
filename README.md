@@ -1,4 +1,7 @@
 # Salary Calculator - IT
+
+https://coccoexe.github.io/salary_calculator
+
 Calcolatore dello stipendio netto annuale / mensile in italia.
 
 Il calcolatore per un calcolo piu preciso e dinamico necessita delle aliquote regionali e comunali.
